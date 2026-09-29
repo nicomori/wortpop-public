@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Verify your WortPop email</title>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f5f3ff; color: #211a3a; }
+    main { width: min(92vw, 520px); box-sizing: border-box; padding: 32px; border-radius: 24px; background: white; box-shadow: 0 20px 60px rgba(48,36,92,.12); text-align: center; }
+    h1 { margin: 0 0 12px; font-size: 2rem; }
+    p { line-height: 1.55; }
+    .status { margin-top: 22px; padding: 16px; border-radius: 14px; background: #f3f0ff; }
+    .ok { background: #e9f9ef; color: #0d5b2a; }
+    .error { background: #fff0f0; color: #8f1d1d; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>WortPop</h1>
+    <p>Email verification</p>
+    <div id="status" class="status">Verifying your email…</div>
+  </main>
+  <script>
+    (() => {
+      const API_KEY = "AIzaSyD_DOjra3Qiw2MbVCd-gLDy39DS3idQmHk";
+      const status = document.getElementById("status");
+      const params = new URLSearchParams(window.location.search);
+      const mode = params.get("mode");
+      const oobCode = params.get("oobCode");
+
+      function show(message, kind) {
+        status.textContent = message;
+        status.className = "status " + kind;
+      }
+
+      if (mode !== "verifyEmail" || !oobCode) {
+        show("This verification link is incomplete. Please request a new verification email from WortPop.", "error");
+        return;
+      }
+
+      fetch("https://identitytoolkit.googleapis.com/v1/accounts:update?key=" + encodeURIComponent(API_KEY), {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({oobCode})
+      })
+        .then(async response => {
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            const code = payload?.error?.message || "";
+            if (code.includes("EXPIRED_OOB_CODE")) {
+              throw new Error("expired");
+            }
+            if (code.includes("INVALID_OOB_CODE")) {
+              throw new Error("invalid");
+            }
+            throw new Error("unknown");
+          }
+          show("Email verified successfully. Return to WortPop and tap “I've verified my email”.", "ok");
+        })
+        .catch(error => {
+          if (error.message === "expired") {
+            show("This verification link has expired. Return to WortPop and request a new email.", "error");
+          } else if (error.message === "invalid") {
+            show("This verification link is invalid or was already used. Return to WortPop and refresh your verification status.", "error");
+          } else {
+            show("We could not verify this email. Return to WortPop and request a new verification email.", "error");
+          }
+        });
+    })();
+  </script>
+</body>
+</html>
